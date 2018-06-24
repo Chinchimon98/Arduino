@@ -34,10 +34,14 @@ int PIN_BLUETOOTHVCC = 40,
     PIN_PULSADOR = 24,
     PIN_LEDVERDE = 26,
     PIN_LEDROJO = 30,
+    PIN_ABRIR = 44,
+    PIN_CERRAR = 45,
     PIN_BUZZER = 34,
+    INTENTOS = 0,
     GRADOS;
 char clave, customKey;
 String texto, pass, usuario;
+boolean abierto;
 User usuario1;
 
 User x;
@@ -59,14 +63,23 @@ void setup() {
   pinMode(PIN_PULSADOR, INPUT);
   pinMode(PIN_LEDVERDE, OUTPUT);
   pinMode(PIN_LEDROJO, OUTPUT);
+  pinMode(PIN_ABRIR, OUTPUT);
+  pinMode(PIN_CERRAR, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
 
   //ENCENDER MODULO HC-05
   digitalWrite(PIN_BLUETOOTHVCC, HIGH);
 
+  abierto = false;
 
   //AGREGANDO DATOS A EEPROM
   setUsuario();
+  //getEEPROM();
+  Serial.println(INTENTOS);
+  if (INTENTOS > 2 ) {
+    bloquear();
+
+  }
 }
 
 void loop() {
@@ -78,11 +91,11 @@ void loop() {
     abrir(texto);
 
   }
-  
-    if (Serial.available()) {
-      clave = Serial.read();
 
-    
+  if (Serial.available()) {
+    clave = Serial.read();
+
+
 
     if ( clave == '1' ) {
 
@@ -148,16 +161,16 @@ void cadena(int opcion) {
       break;
 
     case 2:
-      while (customKey != '#'){
-       
-        if(customKey != NULL){
+      while (customKey != '#') {
+
+        if (customKey != NULL) {
           texto += customKey;
           Serial.println(customKey);
-          }
-          customKey = customKeypad.getKey();
+        }
+        customKey = customKeypad.getKey();
       }
       if (texto.length() > 0) {  //Se verifica que la cadena tipo String tenga un largo mayor a cero
-         Serial.println("test");
+        Serial.println("test");
         Serial.println(texto);
       }
       break;
@@ -180,33 +193,110 @@ void setUsuario() {
   Serial.print("EEPROM length: ");
   Serial.println(EEPROM.length());
 }
+int direccion = sizeof(User);
+void setEEPROM(int intentos) {
+  Serial.print("EEPROM direccion: ");
+  Serial.print(direccion);
+  intentos = INTENTOS;
+  EEPROM.put(direccion, intentos);
+}
+
+void getEEPROM() {
+  EEPROM.get(direccion, INTENTOS);
+}
 
 //ESTE METODO VERIFICA LOS DATOS INGRESADOS PARA ABRIR LA CERRADURA
 void abrir(String password) {
+
   usuario = x.name;
-   Serial.println(texto.length());
-   Serial.println(usuario.length());
+  Serial.println(texto.length());
+  Serial.println(usuario.length());
   Serial.println(password.equals(usuario));
 
   if (password.equals(usuario)) {
-    Serial.println("Ingreso correcto");
-    lcd.print("Ingreso correcto!");
-    digitalWrite(PIN_LEDVERDE, HIGH);
-    digitalWrite(PIN_LEDROJO, LOW);
-    digitalWrite(PIN_BUZZER, HIGH);
-    delay(50);
-    digitalWrite(PIN_BUZZER, LOW);
-    delay(50);
-    digitalWrite(PIN_BUZZER, HIGH);
-    delay(50);
-    digitalWrite(PIN_BUZZER, LOW);
+
+
+    if (abierto == false) {
+      INTENTOS=0;
+      abierto = true;
+      Serial.println("abrir");
+      Serial.println("Ingreso correcto");
+      lcd.print("Ingreso correcto!");
+      digitalWrite(PIN_LEDROJO, LOW);
+      digitalWrite(PIN_LEDVERDE, HIGH);
+
+      digitalWrite(PIN_BUZZER, HIGH);
+      delay(50);
+      digitalWrite(PIN_BUZZER, LOW);
+      delay(50);
+      digitalWrite(PIN_BUZZER, HIGH);
+      delay(50);
+      digitalWrite(PIN_BUZZER, LOW);
+      digitalWrite(PIN_ABRIR, HIGH);
+      Serial.println(digitalRead(PIN_ABRIR));
+      delay(1300);
+      digitalWrite(PIN_ABRIR, LOW);
+      Serial.println(digitalRead(PIN_ABRIR));
+      Serial.println(" ");
+
+    }
+
+
 
   } else {
-    lcd.print("Ingreso denegado!");
+    
+    if (INTENTOS < 3) {
+      INTENTOS++;
+      lcd.print("Ingreso denegado!");
+
+      digitalWrite(PIN_LEDVERDE, LOW);
+      digitalWrite(PIN_LEDROJO, HIGH);
+
+
+      digitalWrite(PIN_BUZZER, HIGH);
+      delay(350);
+      digitalWrite(PIN_BUZZER, LOW);
+
+      if (abierto == true) {
+        abierto = false;
+        Serial.println("cerrar");
+        digitalWrite(PIN_CERRAR, HIGH);
+        Serial.println(digitalRead(PIN_CERRAR));
+        Serial.println(digitalRead(PIN_ABRIR));
+        delay(1300);
+        digitalWrite(PIN_CERRAR, LOW);
+        Serial.println(digitalRead(PIN_CERRAR));
+        Serial.println(" ");
+
+      }
+    } else {
+      //setEEPROM(INTENTOS);
+      bloquear();
+
+    }
+
+
+  }
+
+}
+
+void bloquear() {
+  digitalWrite(PIN_CERRAR, HIGH);
+  delay(1300);
+  digitalWrite(PIN_CERRAR, LOW);
+  lcd.clear();
+  lcd.setCursor(4, 0);
+  lcd.print("CERRADURA");
+  lcd.setCursor(4, 1);
+  lcd.print("BLOQUEADA!");
+  digitalWrite(PIN_LEDVERDE, LOW);
+  while (true) {
+
     digitalWrite(PIN_LEDROJO, HIGH);
-    digitalWrite(PIN_LEDVERDE, LOW);
+    delay(250);
+    digitalWrite(PIN_LEDROJO, LOW);
     digitalWrite(PIN_BUZZER, HIGH);
-    delay(350);
+    delay(250);
     digitalWrite(PIN_BUZZER, LOW);
 
   }
